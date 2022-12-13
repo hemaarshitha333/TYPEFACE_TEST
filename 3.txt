@@ -1,0 +1,51 @@
+To design a datastore for saving monitoring data of a service, we could use a relational database such as MySQL or PostgreSQL. Here is one way we could structure the data in the datastore to support the sample queries:
+Table: apis
+Columns:
+api_id: Unique identifier for the API.
+api_name: Name of the API.
+Table: users
+Columns:
+user_id: Unique identifier for the user.
+username: Name of the user.
+Table: requests
+Columns:
+request_id: Unique identifier for the request.
+api_id: Foreign key to the api_id column in the apis table.
+user_id: Foreign key to the user_id column in the users table.
+response_time: Response time of the request in milliseconds.
+error: Boolean indicating whether the request resulted in an error.
+timestamp: Timestamp of when the request was made.
+With this data structure, we could perform the sample queries as follows:
+
+1.Get the API with maximum average response time across the users:
+
+SELECT a.api_name
+FROM apis a
+JOIN requests r ON a.api_id = r.api_id
+GROUP BY a.api_id
+HAVING AVG(r.response_time) = (
+    SELECT MAX(AVG(r.response_time))
+    FROM requests r
+    GROUP BY r.api_id
+);
+
+2.Get the API with maximum average response time for each user:
+
+SELECT u.username, a.api_name
+FROM users u
+JOIN requests r ON u.user_id = r.user_id
+JOIN apis a ON a.api_id = r.api_id
+GROUP BY u.user_id, a.api_id
+HAVING AVG(r.response_time) = (
+    SELECT MAX(AVG(r.response_time))
+    FROM requests r
+    GROUP BY r.api_id
+    WHERE r.user_id = u.user_id
+);
+
+3. Get error percentage of each API in buckets of 1 hour for 24 hours:
+
+SELECT a.api_name, DATE_FORMAT(r.timestamp, '%Y-%m-%d %H:00') AS hour, AVG(r.error) * 100 AS error_percentage
+FROM apis a
+JOIN requests r ON a.api_id = r.api_id
+GROUP BY a.api_id, hour;
